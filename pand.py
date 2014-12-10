@@ -305,7 +305,10 @@ if __name__ == '__main__':
         for cmd in cmds:
             globals()['do_%s'%(cmd)](project,source)
     except Exception as e:
-        print e
+        if not os.path.isfile(config_file):
+            print 'We better config before proceed. Bye~ Take Care!'
+        else:
+            print e
         if 'config' in cmds and len(cmds) == 1:
             try:
                 do_config(None,None)
