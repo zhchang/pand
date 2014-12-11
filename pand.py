@@ -361,14 +361,10 @@ if __name__ == '__main__':
         if len(sys.argv) == 1:
             cmds = ['compile']
         else:
-            cmds = sys.argv[1].split(',')
+            cmds = []
+            for arg in sys.argv[1:]:
+                cmds += arg.split(',')
         sdk,project,source = read_config(config_file) 
-
-        if len(sys.argv) >= 3:
-            project = sys.argv[2]
-
-        if len(sys.argv) >= 4:
-            source = sys.argv[3]
 
         project = check_project(project)
         setup_project(project,sdk)
