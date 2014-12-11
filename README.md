@@ -1,6 +1,9 @@
 pand
 ====
 
+DOES NOT WORK WITH MICROSOFT WINDOWS
+====================================
+
 a CLI tool for compile, build, debug, run, showing adb logs for Android Projects
 
 Unique Features:
