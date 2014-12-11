@@ -50,7 +50,7 @@ def detect_changes(f,folder):
         return True
     return False
 
-def do_build(project,source,**args):
+def do_build(project,source,sdk,**args):
     apk_file = os.path.join(project,"bin/%s-debug.apk"%(get_app_name(project)))
     BUILD_PROP = 'bin/build.prop'
     build_prop = os.path.join(project,BUILD_PROP)
@@ -78,10 +78,26 @@ def do_build(project,source,**args):
     finally:
         os.chdir(path)
 
-def do_run(project,source,**args):
+def get_adb(sdk):
+    if sdk is not None:
+        adb = os.path.join(os.path.join(sdk,'platform-tools'),'adb')
+    else:
+        adb = 'adb'
+    return adb
+
+def get_android(sdk):
+    if sdk is not None:
+        android = os.path.join(os.path.join(sdk,'tools'),'android')
+    else:
+        android = 'android'
+    return android
+
+
+def do_run(project,source,sdk,**args):
     apk_file = os.path.join(project,"bin/%s-debug.apk"%(get_app_name(project)))
     if not os.path.isfile(apk_file):
         do_build(project,source,**args)
+    adb = get_adb(sdk)
 
     path = os.getcwd()
     try:
@@ -91,9 +107,9 @@ def do_run(project,source,**args):
         package,activity = get_package_and_activity(project)
         print 'package[%s],activity[%s]'%(package,activity)
         if package is not None and activity is not None:
-            call(['adb','shell','am','start','-n','%s/%s'%(package,activity)])
-            grep = check_output(['adb','shell','set `ps|grep %s|grep -v :`;echo $2'%(package)]).strip()
-            cmd = 'adb logcat|grep %s'%(grep)
+            call([adb,'shell','am','start','-n','%s/%s'%(package,activity)])
+            grep = check_output([adb,'shell','set `ps|grep %s|grep -v :`;echo $2'%(package)]).strip()
+            cmd = '%s logcat|grep %s'%(adb,grep)
             print cmd
             call([cmd],shell=True)
         else:
@@ -101,19 +117,21 @@ def do_run(project,source,**args):
     finally:
         os.chdir(path)
 
-def do_adb(project,source,**args):
+def do_adb(project,source,sdk,**args):
+    adb = get_adb(sdk)
     package,activity = get_package_and_activity(project)
     print 'package[%s],activity[%s]'%(package,activity)
     if package is not None and activity is not None:
-        grep = check_output(['adb','shell','set `ps|grep %s|grep -v :`;echo $2'%(package)]).strip()
-        cmd = 'adb logcat|grep %s'%(grep)
+        grep = check_output([adb,'shell','set `ps|grep %s|grep -v :`;echo $2'%(package)]).strip()
+        cmd = '%s logcat|grep %s'%(adb,grep)
         print cmd
         call([cmd],shell=True)
     else:
         print 'failed to determine package and activity'
 
 
-def do_debug(project,source,**args):
+def do_debug(project,source,sdk,**args):
+    adb = get_adb(sdk)
     apk_file = os.path.join(project,"bin/%s-debug.apk"%(get_app_name(project)))
     if not os.path.isfile(apk_file):
         do_build(project,source,**args)
@@ -126,14 +144,14 @@ def do_debug(project,source,**args):
         os.chdir(project)
            
         print 'build ok, installing'
-        call(['adb','install','-r',apk_file]) 
+        call([adb,'install','-r',apk_file]) 
         package,activity = get_package_and_activity(project)
         print 'package[%s],activity[%s]'%(package,activity)
         if package is not None and activity is not None:
-            call(['adb','shell','am','start','-n','%s/%s'%(package,activity)])
-            pid = check_output(['adb','shell','set `ps|grep %s|grep -v :`;echo $2'%(package)]).strip()
+            call([adb,'shell','am','start','-n','%s/%s'%(package,activity)])
+            pid = check_output([adb,'shell','set `ps|grep %s|grep -v :`;echo $2'%(package)]).strip()
             print 'forwarding debugg port %s'%(pid)
-            print check_output(['adb','forward','tcp:19438','jdwp:%s'%(pid)])
+            print check_output([adb,'forward','tcp:19438','jdwp:%s'%(pid)])
             print 'connecting jdb'
             call(['jdb -attach localhost:19438'],shell=True)
 
@@ -141,7 +159,7 @@ def do_debug(project,source,**args):
     finally:
         os.chdir(path)
 
-def do_clean(project,source,**args):
+def do_clean(project,source,sdk,**args):
     path = os.getcwd()
     try:
         os.chdir(project)
@@ -153,7 +171,7 @@ def do_clean(project,source,**args):
     finally:
         os.chdir(path)
 
-def do_compile(project,source,**args):
+def do_compile(project,source,sdk,**args):
     COMPILE_PROP = 'bin/compile.prop'
     compile_prop = os.path.join(project,COMPILE_PROP)
     skip = not detect_changes(compile_prop,source)
@@ -203,6 +221,14 @@ def do_compile(project,source,**args):
     finally:
         os.chdir(path)
 
+def setup_project(p,sdk):
+    android = get_android(sdk)
+    bf = os.path.join(p,'build.xml')
+    if not os.path.isfile(bf):
+        print 'YO, I will help you setup ant build.'
+        call[android,'update','project','-p',p]
+
+
 def check_project(p):
     if not os.path.isabs(p): 
         p = os.path.join(os.getcwd(),p)
@@ -217,34 +243,103 @@ def check_source(p):
         raise argparse.ArgumentTypeError('invalid source folder')
     return p 
 
+def check_sdk(p):
+    if not os.path.isabs(p):
+        p = os.path.join(os.getcwd(),p)
+    if not os.path.isdir(p):
+        raise Exception('oh man, this is not even a folder...,tell me again:')
+    pt = os.path.join(p,'platform-tools')
+    if not os.path.isdir(pt):
+        raise Exception('dude, there is no platform-tools folder in the given path')
+    if not os.path.isfile(os.path.join(pt,'adb')):
+        raise Exception('dude, I need adb to work, did you deleted it?')
+    ts = os.path.join(p,'tools')
+    if not os.path.isdir(ts):
+        raise Exception('dude, your sdk seems incomplete. where is the tools folder?')
+    if not os.path.isfile(os.path.join(ts,'android')):
+        raise Exception('dude, seriously, stop deleting sdk files at will.')
+    return p
+    
 
-def do_idle(project,source):
+
+def do_idle(project,source,sdk):
     pass
 
-def do_config(project,source):
-    print 'What is your project path?'
-    while True:
-        p = sys.stdin.readline().strip()
-        try:
-            p = check_project(p)
-            break;
-        except:
-            print 'Dude, this path looks not like a project folder to me. I will give you one more chance to make it right:'
-            pass
-    print 'Where do you want me to scan for changes?'
-    while True:
-        s = sys.stdin.readline().strip()
-        try:
-            s = check_source(s)
-            break;
-        except:
-            print 'Man, we need a folder. Tell me again now:'
-            pass
+def do_config(project,source,sdk):
+    config_file = os.path.join(os.getcwd(),'.pand')
+    sdk,project,source= read_config(config_file)
+    if sdk is None:
+        print 'so where did you install Android SDK?'
+        while True:
+            sdk= sys.stdin.readline().strip()
+            try:
+                sdk= check_sdk(sdk)
+                break
+            except Exception as e:
+                print e
+                pass
+    if project == '.':
+        print 'What is your project path?'
+        while True:
+            p = sys.stdin.readline().strip()
+            try:
+                p = check_project(p)
+                break
+            except:
+                print 'Dude, this path looks not like a project folder to me. I will give you one more chance to make it right:'
+                pass
+    if source == '.':
+        print 'Where do you want me to scan for changes?'
+        while True:
+            s = sys.stdin.readline().strip()
+            try:
+                s = check_source(s)
+                break
+            except:
+                print 'Man, we need a folder. Tell me again now:'
+                pass
+    home = os.path.expanduser('~')
+    with open(os.path.join(home,'.pand'),'w') as f:
+        f.write('sdk=%s\n'%(sdk))
     with open('.pand','w') as f:
         f.write('project=%s\n'%(p))
         f.write('source=%s\n'%(s))
-        print 'I am good. Bye then!'
-        exit(0)
+    print 'I am good. Bye then!'
+    exit(0)
+
+def read_config(config_file):
+    p = '.'
+    s = '.'
+    sdk = None
+    if os.path.isfile(config_file):
+        with open(config_file,'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                try:
+                    key,value = line.split('=',2)
+                    key = key.strip()
+                    value = value.strip()
+                    if key == 'project':
+                        p = check_project(value)
+                    elif key == 'source':
+                        s = check_source(value)
+                except:
+                    pass
+    home_config = os.path.join(os.path.expanduser('~'),'.pand')
+    if os.path.isfile(home_config):
+        with open(home_config,'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                try:
+                    key,value = line.split('=',2)
+                    key = key.strip()
+                    value = value.strip()
+                    if key == 'sdk':
+                        sdk = check_sdk(value)
+                except:
+                    pass
+    return sdk,p,s
+
 
 if __name__ == '__main__':
     #parse the arguments
@@ -256,7 +351,7 @@ if __name__ == '__main__':
         while True:
             choice = sys.stdin.readline().strip()
             if choice.lower() in ['y','yes','yep','yeah']:
-                do_config(None,None)
+                do_config(None,None,None)
                 break
             elif choice.lower() in ['n','no','nuh','nope']:
                 break
@@ -267,43 +362,26 @@ if __name__ == '__main__':
             cmds = ['compile']
         else:
             cmds = sys.argv[1].split(',')
-        default_p = '.'
-        default_s = '.'
-        if os.path.isfile(config_file):
-            with open(config_file,'r') as f:
-                lines = f.readlines()
-                for line in lines:
-                    try:
-                        key,value = line.split('=',2)
-                        key = key.strip()
-                        value = value.strip()
-                        if key == 'project':
-                            default_p = check_project(value)
-                        elif key == 'source':
-                            default_s = check_source(value)
-                    except:
-                        pass
+        sdk,project,source = read_config(config_file) 
+
+        if len(sys.argv) >= 3:
+            project = sys.argv[2]
+
+        if len(sys.argv) >= 4:
+            source = sys.argv[3]
+
+        project = check_project(project)
+        setup_project(project,sdk)
+        source = check_source(source)
+
         for cmd in cmds:
             if 'do_%s'%(cmd) not in globals():
                 trash_talks = ['what the heck is %s?','Man! I know not what %s is','Seriously, what do you mean by %s?']
                 random.seed()
                 raise Exception(trash_talks[random.randrange(len(trash_talks))]%(cmd))
-
-        if len(sys.argv) >= 3:
-            project = sys.argv[2]
-        else:
-            project = default_p
-        project = check_project(project)
         
-
-        if len(sys.argv) >= 4:
-            source = sys.argv[3]
-        else:
-            source = default_s
-        source = check_source(source)
-
         for cmd in cmds:
-            globals()['do_%s'%(cmd)](project,source)
+            globals()['do_%s'%(cmd)](project,source,sdk)
     except Exception as e:
         if not os.path.isfile(config_file):
             print 'We better config before proceed. Bye~ Take Care!'
@@ -311,7 +389,7 @@ if __name__ == '__main__':
             print e
         if 'config' in cmds and len(cmds) == 1:
             try:
-                do_config(None,None)
+                do_config(None,None,None)
             except Exception as ce:
                 print ce
                 exit(1)
