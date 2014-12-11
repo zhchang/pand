@@ -226,7 +226,7 @@ def setup_project(p,sdk):
     bf = os.path.join(p,'build.xml')
     if not os.path.isfile(bf):
         print 'YO, I will help you setup ant build.'
-        call[android,'update','project','-p',p]
+        call([android,'update','project','-p',p])
 
 
 def check_project(p):
