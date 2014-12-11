@@ -7,7 +7,7 @@ simply issue command:
 
     pand cmds
 
-where cmds is comma separated values, compile,build,clean,adb,run,debug
+where cmds is comma or space separated values, compile,build,clean,adb,run,debug
 
 Examples:
 
@@ -15,11 +15,12 @@ Examples:
     pand compile
     pand clean //cleans current project
     pand build //scan modification and incrementally builds apk
-    pand run //run last built apk
+    pand run //run last built apk and show adb output for the android process
     pand debug //build,run and forward debug port to and connect to jdb
     pand adb //get log for last debuggable process
     pand clean,compile //do a fresh compile
     pand config //guided configuration
+    pand clean compile build run adb //fresh build and run
 
 first time running, there will be a guided setup.
 
