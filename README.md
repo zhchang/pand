@@ -18,4 +18,4 @@ Have Fun!
 NOTE:
 
 1. sdk path config is stored in ~/.pand (delete to reconfigure) 
-2. project/source config is stored in <PWD>/.pand (delete to reconfigure)
+2. project/source config is stored in PWD/.pand (delete to reconfigure)
