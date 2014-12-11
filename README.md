@@ -3,6 +3,12 @@ pand
 
 a CLI tool for compile, build, debug, run, showing adb logs for Android Projects
 
+Unique Features:
+
+    1. Auto run android update project to setup CLI environment
+    2. Auto generate compile ant target in custom_rules.xml
+    3. Guided configuration steps included (when first run or when config files are missing)
+
 simply issue command:
 
     pand cmds
