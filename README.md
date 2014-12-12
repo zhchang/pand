@@ -11,6 +11,7 @@ Unique Features:
     1. Auto run android update project to setup CLI environment
     2. Auto generate compile ant target in custom_rules.xml
     3. Guided configuration steps included (when first run or when config files are missing)
+    4. Support guided new project creation
 
 simply issue command:
 
@@ -20,6 +21,7 @@ where cmds is comma or space separated values, compile,build,clean,adb,run,debug
 
 Examples:
 
+    pand new //create a new project with guided configurations
     pand // scan modification and incrementally compiles current project
     pand compile
     pand clean //cleans current project
