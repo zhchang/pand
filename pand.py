@@ -418,13 +418,51 @@ def get_yn_choice():
         else:
             print 'Speak English![Y/N]'
 
+def do_env():
+    def checker(path):
+        return os.path.isdir(path) 
+    dest = get_input('So where should I install sdks?','dude, this is not a good place. Choose somewhere else.',checker)
+    if not os.path.isabs(dest): 
+        dest = os.path.join(os.getcwd(),dest)
+    path = os.getcwd()
+    try:
+        os.chdir(dest)
+        download = os.path.join(dest,'android-sdk_r24-linux.tgz')
+        if not os.path.isfile(download):
+            test = check_output(['which','wget'])
+            if not os.path.isfile(test.strip()):
+                print 'we need wget to proceed, let me know when you have it.'
+                exit(0)
+            if call(['wget','http://dl.google.com/android/android-sdk_r24-linux.tgz']) != 0:
+                raise Exception('I cannot seem to download sdk. You might want to try again later.')
+            if call(['tar','zxf','android-sdk_r24-linux.tgz'])!=0:
+                raise Exception('The file downloaded seems to be corrupted. You might wanna try again later.')
+        sdk = os.path.join(dest,'android-sdk-linux')
+        android =get_android(sdk)
+        print android
+        while not os.path.isdir(os.path.join(sdk,'platform-tools')) or len(os.listdir(os.path.join(sdk,'platforms'))) == 0:
+            print 'it appears I need to download more package, shall I proceed?[Y/N]'
+            if get_yn_choice():
+                call([android,'update','sdk','-u'])
+            else:
+                raise Exception('Bye then.')
+        home = os.path.expanduser('~')
+        with open(os.path.join(home,'.pand'),'w') as f:
+            f.write('sdk=%s\n'%(sdk))
+        try:
+            os.remove(download)
+        except:
+            pass
+    except Exception as e:
+        print e
+    finally:
+        os.chdir(path)
+    exit(0)
+    
 
 
 if __name__ == '__main__':
-    sdk = read_sdk_config()
-    if sdk is not None:
-        config_sdk()
-    #parse the arguments
+        #parse the arguments
     cmds = []
     if len(sys.argv) == 1:
             cmds = ['compile']
@@ -432,6 +470,15 @@ if __name__ == '__main__':
         cmds = []
         for arg in sys.argv[1:]:
             cmds += arg.split(',')
+
+    if 'env' in cmds:
+        cmds.remove('env')
+        do_env()
+
+    sdk = read_sdk_config()
+    if sdk is not None:
+        config_sdk()
+
     if 'new' in cmds:
         cmds.remove('new')
         do_new(sdk)
@@ -447,6 +494,7 @@ if __name__ == '__main__':
         print '[Y/N]'
         if get_yn_choice():
             should_config= True
+
     if should_config:
         do_config(None,None,None)
 
