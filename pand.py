@@ -3,6 +3,7 @@ import os,argparse,sys
 import xml.etree.ElementTree as ET
 from subprocess import call,check_output
 import random
+import re
 
 def get_package_and_activity(folder):
     package = None
@@ -106,6 +107,8 @@ def do_run(project,source,sdk,**args):
         call(['adb','install','-r',apk_file]) 
         package,activity = get_package_and_activity(project)
         print 'package[%s],activity[%s]'%(package,activity)
+        if len(activity.split('.')) == 1:
+            activity = '.' + activity
         if package is not None and activity is not None:
             call([adb,'shell','am','start','-n','%s/%s'%(package,activity)])
             grep = check_output([adb,'shell','set `ps|grep %s|grep -v :`;echo $2'%(package)]).strip()
@@ -170,6 +173,17 @@ def do_clean(project,source,sdk,**args):
         cs = call(['ant','clean'])
     finally:
         os.chdir(path)
+
+def do_remove(project,source,sdk,**args):
+    adb = get_adb(sdk)
+    try:
+        package,activity = get_package_and_activity(project)
+        if package is not None:
+            print 'alright, let me try uninstall it.'
+            call([adb,'uninstall',package])
+
+    except:
+        pass
 
 def do_compile(project,source,sdk,**args):
     COMPILE_PROP = 'bin/compile.prop'
@@ -265,9 +279,8 @@ def check_sdk(p):
 def do_idle(project,source,sdk):
     pass
 
-def do_config(project,source,sdk):
-    config_file = os.path.join(os.getcwd(),'.pand')
-    sdk,project,source= read_config(config_file)
+def config_sdk():
+    sdk = read_sdk_config()
     if sdk is None:
         print 'so where did you install Android SDK?'
         while True:
@@ -278,39 +291,55 @@ def do_config(project,source,sdk):
             except Exception as e:
                 print e
                 pass
-    if project == '.':
-        print 'What is your project path?'
-        while True:
-            p = sys.stdin.readline().strip()
-            try:
-                p = check_project(p)
-                break
-            except:
-                print 'Dude, this path looks not like a project folder to me. I will give you one more chance to make it right:'
-                pass
-    if source == '.':
-        print 'Where do you want me to scan for changes?'
-        while True:
-            s = sys.stdin.readline().strip()
-            try:
-                s = check_source(s)
-                break
-            except:
-                print 'Man, we need a folder. Tell me again now:'
-                pass
     home = os.path.expanduser('~')
     with open(os.path.join(home,'.pand'),'w') as f:
         f.write('sdk=%s\n'%(sdk))
+
+def do_config(project,source,sdk):
+    
+    print 'What is your project path?'
+    while True:
+        project = sys.stdin.readline().strip()
+        try:
+            project = check_project(project)
+            break
+        except:
+            print 'Dude, this path looks not like a project folder to me. I will give you one more chance to make it right:'
+            pass
+    print 'Where do you want me to scan for changes?'
+    while True:
+        source = sys.stdin.readline().strip()
+        try:
+            source = check_source(source)
+            break
+        except:
+            print 'Man, we need a folder. Tell me again now:'
+            pass
     with open('.pand','w') as f:
-        f.write('project=%s\n'%(p))
-        f.write('source=%s\n'%(s))
-    print 'I am good. Bye then!'
-    exit(0)
+        f.write('project=%s\n'%(project))
+        f.write('source=%s\n'%(source))
+
+def read_sdk_config():
+    sdk = None
+    home_config = os.path.join(os.path.expanduser('~'),'.pand')
+    if os.path.isfile(home_config):
+        with open(home_config,'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                try:
+                    key,value = line.split('=',2)
+                    key = key.strip()
+                    value = value.strip()
+                    if key == 'sdk':
+                        sdk = check_sdk(value)
+                except:
+                    pass
+    return sdk
+
 
 def read_config(config_file):
     p = '.'
     s = '.'
-    sdk = None
     if os.path.isfile(config_file):
         with open(config_file,'r') as f:
             lines = f.readlines()
@@ -325,46 +354,104 @@ def read_config(config_file):
                         s = check_source(value)
                 except:
                     pass
-    home_config = os.path.join(os.path.expanduser('~'),'.pand')
-    if os.path.isfile(home_config):
-        with open(home_config,'r') as f:
-            lines = f.readlines()
-            for line in lines:
-                try:
-                    key,value = line.split('=',2)
-                    key = key.strip()
-                    value = value.strip()
-                    if key == 'sdk':
-                        sdk = check_sdk(value)
-                except:
-                    pass
-    return sdk,p,s
+    return p,s
+
+def get_input(hint,error,checker):
+    print hint
+    while True:
+        choice = sys.stdin.readline().strip()
+        if checker(choice):
+            return choice
+        else:
+            print error
+
+
+def get_target_input():
+    android = get_android(sdk)
+    output = check_output([android,'list','target'])
+    ids = []
+    for line in output.split('\n'):
+        line = line.strip()
+        if line.startswith("id: "):
+            ids.append( line.split('or')[0].strip().split(' ')[1])
+            print line
+    def checker(choice):
+        return choice in ids
+    return get_input('come on now, which sdk you wanna use?','Dude, do not make things up! tell me again',checker)
+
+
+
+
+def do_new(sdk):
+    path = os.getcwd()
+    if len(os.listdir(path)) > 0:
+        print 'Darn, this is not an empty folder, are you sure you wanna do it here?[Y/N]'
+        if not get_yn_choice():
+            print 'Alright, call me again when you are ready.'
+            exit(0)
+    android = get_android(sdk)
+    target = get_target_input()
+    print 'target %s'%(target)
+    def check_name(name):
+        return re.match('^[A-Za-z]*[A-Za-z0-9-_]*$',name) != None
+
+    def check_package(package):
+        names = package.split(".")
+        for name in names:
+            if not check_name(name):
+                return False
+        return True
+    name = get_input('what do you wanna call your project?','shit man, bad name.',check_name)
+    activity = get_input('what do you wanna call your activity?','shit man, bad name.',check_name)
+    package = get_input('what java package for your source code?','shit man, bad package.',check_package)
+    
+    call([android,'create','project','--target',target,'--name',name,'--path','.','--activity',activity,'--package',package])
+    exit(0)
+
+def get_yn_choice():
+    while True:
+        choice = sys.stdin.readline().strip()
+        if choice.lower() in ['y','yes','yep','yeah']:
+            return True
+        elif choice.lower() in ['n','no','nuh','nope']:
+            return False
+        else:
+            print 'Speak English![Y/N]'
+
 
 
 if __name__ == '__main__':
+    sdk = read_sdk_config()
+    if sdk is not None:
+        config_sdk()
     #parse the arguments
     cmds = []
+    if len(sys.argv) == 1:
+            cmds = ['compile']
+    else:
+        cmds = []
+        for arg in sys.argv[1:]:
+            cmds += arg.split(',')
+    if 'new' in cmds:
+        cmds.remove('new')
+        do_new(sdk)
+    should_config = False
+    if 'config' in cmds:
+        cmds.remove('config')
+        should_config = True
+
+
     config_file = os.path.join(os.getcwd(),'.pand')
-    if not os.path.isfile(config_file):
+    if not should_config and not os.path.isfile(config_file):
         print 'Howdy Dude, tell me something before we can start,ready?'
         print '[Y/N]'
-        while True:
-            choice = sys.stdin.readline().strip()
-            if choice.lower() in ['y','yes','yep','yeah']:
-                do_config(None,None,None)
-                break
-            elif choice.lower() in ['n','no','nuh','nope']:
-                break
-            else:
-                print 'Speak English![Y/N]'
+        if get_yn_choice():
+            should_config= True
+    if should_config:
+        do_config(None,None,None)
+
     try:
-        if len(sys.argv) == 1:
-            cmds = ['compile']
-        else:
-            cmds = []
-            for arg in sys.argv[1:]:
-                cmds += arg.split(',')
-        sdk,project,source = read_config(config_file) 
+        project,source = read_config(config_file) 
 
         project = check_project(project)
         setup_project(project,sdk)
@@ -383,12 +470,5 @@ if __name__ == '__main__':
             print 'We better config before proceed. Bye~ Take Care!'
         else:
             print e
-        if 'config' in cmds and len(cmds) == 1:
-            try:
-                do_config(None,None,None)
-            except Exception as ce:
-                print ce
-                exit(1)
-        else:
             exit(1)    
     
