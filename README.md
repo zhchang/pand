@@ -1,6 +1,10 @@
 pand
 ====
 
+Linux could be the best platform to develop Android APP, since it is compatible with most Android phones, you don't have to fight for drivers when debugging.
+
+I myself is a heavy user of VIM, I feel Eclipse ADT and Android Studio did a lot of things right, but also slow me down in many ways.  I wonder is it possible to develop Android APP using VIM + CLI tools only, hence this project. If you are a heavy VIM user like me and you are developing Android APP, trust me, this tool will make your life much more easier.
+
 DOES NOT WORK WITH MICROSOFT WINDOWS
 ====================================
 
