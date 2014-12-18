@@ -22,7 +22,7 @@ simply issue command:
 
     pand cmds
 
-where cmds is comma or space separated values, compile,build,clean,adb,run,debug
+where cmds is comma or space separated values, env,new,compile,build,clean,adb,run,debug
 
 Examples:
 
