@@ -530,7 +530,7 @@ if __name__ == '__main__':
     else:
         cmds = []
         for arg in sys.argv[1:]:
-            cmds += arg.split(',')
+            cmds += arg.lower().split(',')
 
     if 'env' in cmds:
         cmds.remove('env')
