@@ -421,24 +421,15 @@ def get_yn_choice():
             print 'Speak English![Y/N]'
 
 
-def download_file(wget,curl,url):
+def download_file(url):
     error = 'I cannot seem to download %s. You might want to try again later.'%(url)
-    path = url[url.rfind('/'):]
-    if wget:
-        if call(['wget',url]) != 0:
-            try:
-                os.remove(path)
-            except:
-                pass
-            raise Exception(error)
-            
-    elif curl:
-        if call(['curl','-o',path,url]) != 0:
-            try:
-                os.remove(path)
-            except:
-                pass
-            raise Exception(error)
+    path = url[url.rfind('/')+1:]
+    if call(['curl',url,'-o',path]) != 0:
+        try:
+            os.remove(path)
+        except:
+            pass
+        raise Exception(error)
 
 
 
@@ -463,21 +454,18 @@ def do_env():
         if not os.path.isfile('android-sdk.tgz'):
             has_wget = False
             has_curl = False
-            test = check_output(['which','wget'])
-            has_wget = os.path.isfile(test.strip())
-            if not has_wget:
-                test = check_output(['which','curl'])
-                has_curl= os.path.isfile(test.strip())
-                if not has_curl:
-                    print 'we need wget or curl to proceed, let me know when you have it.'
-                    exit(0)
+            test = check_output(['which','curl'])
+            has_curl= os.path.isfile(test.strip())
+            if not has_curl:
+                print 'we need curl to proceed, let me know when you have it.'
+                exit(0)
 
             os.chdir(dest)
             try:
                 os.remove('index.html')
             except:
                 pass
-            download_file(has_wget,has_curl,'http://developer.android.com/sdk/index.html')
+            download_file('http://developer.android.com/sdk/index.html')
             sdk_url= ''
             keyword = get_os_keyword()
             with open('index.html','r') as f:
@@ -499,7 +487,7 @@ def do_env():
                 os.remove(download)
             except:
                 pass
-            download_file(has_wget,has_curl,sdk_url)
+            download_file(sdk_url)
         os.rename(download,'android-sdk.tgz')
         if call(['tar','zxf','android-sdk.tgz'])!=0:
             raise Exception('The file downloaded seems to be corrupted. You might wanna try again later.')
