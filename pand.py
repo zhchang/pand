@@ -125,6 +125,7 @@ def do_adb(project,source,sdk,**args):
     package,activity = get_package_and_activity(project)
     print 'package[%s],activity[%s]'%(package,activity)
     if package is not None and activity is not None:
+        call([adb,'shell','set `ps|grep %s|grep -v :`;echo $2'%(package)])
         grep = check_output([adb,'shell','set `ps|grep %s|grep -v :`;echo $2'%(package)]).strip()
         cmd = '%s logcat|grep %s'%(adb,grep)
         print cmd
