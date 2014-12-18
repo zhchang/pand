@@ -22,7 +22,7 @@ simply issue command:
 
     pand cmds
 
-where cmds is comma or space separated values, env,new,compile,build,clean,adb,run,debug
+where cmds is comma or space separated values, env,new,compile,build,clean,remove,adb,run,debug
 
 Examples:
 
@@ -30,6 +30,7 @@ Examples:
     pand new //create a new project with guided configurations
     pand // scan modification and incrementally compiles current project
     pand compile
+    pand remove // uninstall apk from device
     pand clean //cleans current project
     pand build //scan modification and incrementally builds apk
     pand run //run last built apk and show adb output for the android process
