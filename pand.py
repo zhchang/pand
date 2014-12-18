@@ -452,10 +452,12 @@ def do_env():
     path = os.getcwd()
     try:
         if not os.path.isfile('android-sdk.tgz'):
-            has_wget = False
             has_curl = False
-            test = check_output(['which','curl'])
-            has_curl= os.path.isfile(test.strip())
+            try:
+                check_output(['which','curl'])
+                has_curl = True
+            except:
+                pass
             if not has_curl:
                 print 'we need curl to proceed, let me know when you have it.'
                 exit(0)
