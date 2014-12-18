@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 from subprocess import call,check_output
 import random
 import re
+from sys import platform as _platform
 
 def get_package_and_activity(folder):
     package = None
@@ -419,6 +420,38 @@ def get_yn_choice():
         else:
             print 'Speak English![Y/N]'
 
+
+def download_file(wget,curl,url):
+    error = 'I cannot seem to download %s. You might want to try again later.'%(url)
+    path = url[url.rfind('/'):]
+    if wget:
+        if call(['wget',url]) != 0:
+            try:
+                os.remove(path)
+            except:
+                pass
+            raise Exception(error)
+            
+    elif curl:
+        if call(['curl','-o',path,url]) != 0:
+            try:
+                os.remove(path)
+            except:
+                pass
+            raise Exception(error)
+
+
+
+def get_os_keyword():
+    keyword = ''
+    if _platform == "linux" or _platform == "linux2":
+        keyword = 'linux'
+    elif _platform == "darwin":
+        keyword = 'macosx'
+    return keyword
+
+
+
 def do_env():
     def checker(path):
         return os.path.isdir(path) 
@@ -427,17 +460,53 @@ def do_env():
         dest = os.path.join(os.getcwd(),dest)
     path = os.getcwd()
     try:
-        os.chdir(dest)
-        download = os.path.join(dest,'android-sdk_r24-linux.tgz')
-        if not os.path.isfile(download):
+        if not os.path.isfile('android-sdk.tgz'):
+            has_wget = False
+            has_curl = False
             test = check_output(['which','wget'])
-            if not os.path.isfile(test.strip()):
-                print 'we need wget to proceed, let me know when you have it.'
-                exit(0)
-            if call(['wget','http://dl.google.com/android/android-sdk_r24-linux.tgz']) != 0:
-                raise Exception('I cannot seem to download sdk. You might want to try again later.')
-            if call(['tar','zxf','android-sdk_r24-linux.tgz'])!=0:
-                raise Exception('The file downloaded seems to be corrupted. You might wanna try again later.')
+            has_wget = os.path.isfile(test.strip())
+            if not has_wget:
+                test = check_output(['which','curl'])
+                has_curl= os.path.isfile(test.strip())
+                if not has_curl:
+                    print 'we need wget or curl to proceed, let me know when you have it.'
+                    exit(0)
+
+            os.chdir(dest)
+            try:
+                os.remove('index.html')
+            except:
+                pass
+            download_file(has_wget,has_curl,'http://developer.android.com/sdk/index.html')
+            sdk_url= ''
+            keyword = get_os_keyword()
+            with open('index.html','r') as f:
+                c = f.read()
+                result = c.find('"http://dl.google.com/android',0)
+                while result != -1:
+                    start = result + 1
+                    result = c.find('"',start)
+                    thing = c[start:result]
+                    if thing.find(keyword)!=-1:
+                        sdk_url= thing
+                        break
+                    result = c.find('"http://dl.google.com/android',start)
+            print sdk_url
+            sdk_zip = sdk_url[sdk_url.rfind('/'):]
+
+            download = os.path.join(dest,sdk_zip)
+            try:
+                os.remove(download)
+            except:
+                pass
+            download_file(has_wget,has_curl,sdk_url)
+        os.rename(download,'android-sdk.tgz')
+        if call(['tar','zxf','android-sdk.tgz'])!=0:
+            raise Exception('The file downloaded seems to be corrupted. You might wanna try again later.')
+        try:
+            os.remove('android-sdk.tgz')
+        except:
+            pass
         sdk = os.path.join(dest,'android-sdk-linux')
         android =get_android(sdk)
         print android
@@ -463,7 +532,8 @@ def do_env():
 
 
 if __name__ == '__main__':
-        #parse the arguments
+    if len(get_os_keyword())==0:
+        print 'I support only linux or OSX'
     cmds = []
     if len(sys.argv) == 1:
             cmds = ['compile']
@@ -475,6 +545,7 @@ if __name__ == '__main__':
     if 'env' in cmds:
         cmds.remove('env')
         do_env()
+
 
     sdk = read_sdk_config()
     if sdk is not None:
