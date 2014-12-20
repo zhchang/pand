@@ -87,6 +87,7 @@ def get_adb(sdk):
         adb = 'adb'
     return adb
 
+
 def get_android(sdk):
     if sdk is not None:
         android = os.path.join(os.path.join(sdk,'tools'),'android')
@@ -442,7 +443,6 @@ def get_os_keyword():
     return keyword
 
 
-
 def do_env():
     def checker(path):
         return os.path.isdir(path) 
@@ -450,8 +450,9 @@ def do_env():
     if not os.path.isabs(dest): 
         dest = os.path.join(os.getcwd(),dest)
     path = os.getcwd()
+    keyword = get_os_keyword()
     try:
-        if not os.path.isfile('android-sdk.tgz'):
+        if not os.path.isfile('download-complete') :
             has_curl = False
             try:
                 check_output(['which','curl'])
@@ -469,7 +470,6 @@ def do_env():
                 pass
             download_file('http://developer.android.com/sdk/index.html')
             sdk_url= ''
-            keyword = get_os_keyword()
             with open('index.html','r') as f:
                 c = f.read()
                 result = c.find('"http://dl.google.com/android',0)
@@ -482,22 +482,31 @@ def do_env():
                         break
                     result = c.find('"http://dl.google.com/android',start)
             print sdk_url
-            sdk_zip = sdk_url[sdk_url.rfind('/'):]
-
+            sdk_zip = sdk_url[sdk_url.rfind('/')+1:]
             download = os.path.join(dest,sdk_zip)
-            try:
-                os.remove(download)
-            except:
-                pass
-            download_file(sdk_url)
-        os.rename(download,'android-sdk.tgz')
-        if call(['tar','zxf','android-sdk.tgz'])!=0:
-            raise Exception('The file downloaded seems to be corrupted. You might wanna try again later.')
-        try:
-            os.remove('android-sdk.tgz')
-        except:
-            pass
-        sdk = os.path.join(dest,'android-sdk-linux')
+#            try:
+#                os.remove(download)
+#            except:
+#                pass
+#            download_file(sdk_url)
+            print download
+            renameto = ''
+            if download.endswith('.tgz'):
+                renameto = os.path.join(dest,'android-sdk.tgz')
+            elif download.endswith('.zip'):
+                renameto = os.path.join(dest,'android-sdk.zip')
+            os.rename(download,renameto)
+            with open('download-complete','w') as f:
+                f.write('done')
+
+        if os.path.isfile('android-sdk.tgz'):
+            if call(['tar','zxf','android-sdk.tgz'])!=0:
+                raise Exception('The file downloaded seems to be corrupted. You might wanna try again later.')
+                os.remove('android-sdk.tgz')
+        elif os.path.isfile('android-sdk.zip'):
+            if call(['unzip','-o','android-sdk.zip'])!=0:
+                raise Exception('The file downloaded seems to be corrupted. You might wanna try again later.')
+        sdk = os.path.join(dest,'android-sdk-%s'%(keyword))
         android =get_android(sdk)
         print android
         while not os.path.isdir(os.path.join(sdk,'platform-tools')) or len(os.listdir(os.path.join(sdk,'platforms'))) == 0:
