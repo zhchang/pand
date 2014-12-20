@@ -484,11 +484,11 @@ def do_env():
             print sdk_url
             sdk_zip = sdk_url[sdk_url.rfind('/')+1:]
             download = os.path.join(dest,sdk_zip)
-#            try:
-#                os.remove(download)
-#            except:
-#                pass
-#            download_file(sdk_url)
+            try:
+                os.remove(download)
+            except:
+                pass
+            download_file(sdk_url)
             print download
             renameto = ''
             if download.endswith('.tgz'):
