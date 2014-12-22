@@ -78,6 +78,8 @@ def do_build(project,source,sdk,**args):
             with open(os.devnull,'w') as f:
                 call(['./gradlew','build','--info'],stdout=f)
         if os.path.isfile(apk_file):
+            with open(build_prop,'w') as f:
+                f.write('build ok')
             print 'build ok'
         else:
             raise Exception('failed to build apk : %s'%(apk_file))
@@ -100,7 +102,7 @@ def get_android(sdk):
 
 
 def do_run(project,source,sdk,**args):
-    apk_file = util.get_os_path(project,["bin","%s-debug.apk"%(get_app_name(project))])
+    apk_file = util.get_os_path(project,["build","outputs","apk","%s-debug.apk"%(get_app_name(project))])
     if not os.path.isfile(apk_file):
         do_build(project,source,**args)
     adb = get_adb(sdk)
@@ -141,12 +143,9 @@ def do_adb(project,source,sdk,**args):
 
 def do_debug(project,source,sdk,**args):
     adb = get_adb(sdk)
-    apk_file = util.get_os_path(project,["bin","%s-debug.apk"%(get_app_name(project))])
+    apk_file = util.get_os_path(project,["build","outputs","apk","%s-debug.apk"%(get_app_name(project))])
     if not os.path.isfile(apk_file):
         do_build(project,source,**args)
-    BUILD_PROP = 'bin/build.prop'
-    build_prop = util.get_os_path(project,BUILD_PROP)
-    skip = not detect_changes(build_prop,source)
 
     path = os.getcwd()
     try:
@@ -192,52 +191,23 @@ def do_remove(project,source,sdk,**args):
         pass
 
 def do_compile(project,source,sdk,**args):
-    COMPILE_PROP = 'bin/compile.prop'
-    compile_prop = util.get_os_path(project,COMPILE_PROP)
+    compile_prop = util.get_os_path(project,['build','compile.prop'])
     skip = not detect_changes(compile_prop,source)
-        
     if skip:
         print 'no changes detected, compile skipped'
         return
-
     path = os.getcwd()
     try:
         os.chdir(project)
-        rules_xml = util.get_os_path(project,'custom_rules.xml')
-        tree = None
-        root = None
-        if os.path.isfile(rules_xml):
-            try:
-                tree = ET.parse(rules_xml)
-                root = tree.getroot()
-            except Exception as e:
-                tree = None
-                print 'error reading rules %s'%(e)
-
-        if tree is None:
-            root = ET.Element('project')
-            root.attrib['name'] = 'build-rules'
-            root.attrib['default'] = 'help'
-            tree = ET.ElementTree(root)
-
-        compile_target_ready = False
-            
-        for child in root:
-            if child.tag == 'target' and child.attrib['name'] == 'compile':
-                compile_target_ready = True
-
-        if not compile_target_ready:
-            ET.SubElement(root,'target',{'name':'compile','depends':'-set-debug-mode,-compile'})
-            tree.write(rules_xml)
-
         if 'env' in args:
             env = args['env']
             for key,value in env.iteritems():
                 os.environ[key] = value
-        cs = call(['ant','compile'])
-        if cs == 0:
-            with open(COMPILE_PROP,'w') as prop:
-                prop.write('compile succeed')
+        with open(os.devnull,'w') as f:
+            cs = call(['./gradlew','compileDebugJava','--info'],stdout=f)
+            if cs == 0:
+                with open(compile_prop,'w') as prop:
+                    prop.write('compile succeed')
     finally:
         os.chdir(path)
 
