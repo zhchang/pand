@@ -11,7 +11,7 @@ def get_package_and_activity(folder):
     package = None
     activity = None
     try:
-        manifest_path = util.get_os_path(folder,'AndroidManifest.xml')
+        manifest_path = util.get_os_path(folder,['src','main','AndroidManifest.xml'])
         if os.path.isfile(manifest_path):
             tree = ET.parse(manifest_path)
             package = tree.getroot().attrib['package']
@@ -31,11 +31,14 @@ def get_package_and_activity(folder):
     return (package,activity)
 
 def get_app_name(folder):
-    build_path = util.get_os_path(folder,'build.xml')
-    if os.path.isfile(build_path):
-       tree = ET.parse(build_path) 
-       return tree.getroot().attrib['name']
-    return None
+    if not os.path.isabs(folder): 
+        folder = util.get_os_path(os.getcwd(),folder)
+    if folder.endswith('.'):
+        folder = folder[:folder.rfind('/')] 
+    if folder.rfind('/') != -1:
+        return folder[folder.rfind('/')+1:]
+    else:
+        return folder
 
 def detect_changes(f,folder):
     if os.path.isfile(f) and os.path.isdir(folder):
@@ -54,9 +57,8 @@ def detect_changes(f,folder):
     return False
 
 def do_build(project,source,sdk,**args):
-    apk_file = util.get_os_path(project,['bin','%s-debug.apk'%(get_app_name(project))])
-    BUILD_PROP = 'bin/build.prop'
-    build_prop = util.get_os_path(project,BUILD_PROP)
+    apk_file = util.get_os_path(project,['build','outputs','apk','%s-debug.apk'%(get_app_name(project))])
+    build_prop = util.get_os_path(project,['build','build.prop'])
     skip = (not detect_changes(build_prop,source)) and  os.path.isfile(apk_file)
     path = os.getcwd()
     toraise = None
@@ -73,7 +75,8 @@ def do_build(project,source,sdk,**args):
                 env = args['env']
                 for key,value in env.iteritems():
                     os.environ[key] = value
-            call(['ant','debug'])
+            with open(os.devnull,'w') as f:
+                call(['./gradlew','build','--info'],stdout=f)
         if os.path.isfile(apk_file):
             print 'build ok'
         else:
@@ -238,18 +241,11 @@ def do_compile(project,source,sdk,**args):
     finally:
         os.chdir(path)
 
-def setup_project(p,sdk):
-    android = get_android(sdk)
-    bf = util.get_os_path(p,'build.xml')
-    if not os.path.isfile(bf):
-        print 'YO, I will help you setup ant build.'
-        call([android,'update','project','-p',p])
-
 
 def check_project(p):
     if not os.path.isabs(p): 
         p = util.get_os_path(os.getcwd(),p)
-    if not os.path.isdir(p) or  not os.path.isfile(util.get_os_path(p,'AndroidManifest.xml')):
+    if not os.path.isdir(p) or  not os.path.isfile(util.get_os_path(p,['src','main','AndroidManifest.xml'])):
         raise argparse.ArgumentTypeError('invalid project folder')
     return p 
 
@@ -565,7 +561,6 @@ if __name__ == '__main__':
         project,source = read_config(config_file) 
 
         project = check_project(project)
-        setup_project(project,sdk)
         source = check_source(source)
 
         for cmd in cmds:
@@ -578,6 +573,7 @@ if __name__ == '__main__':
             globals()['do_%s'%(cmd)](project,source,sdk)
     except Exception as e:
         if not os.path.isfile(config_file):
+            print e
             print 'We better config before proceed. Bye~ Take Care!'
         else:
             print e
