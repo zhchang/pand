@@ -175,7 +175,7 @@ def do_clean(project,source,sdk,**args):
             env = args['env']
             for key,value in env.iteritems():
                 os.environ[key] = value
-        cs = call(['ant','clean'])
+        call(['./gradlew','clean'])
     finally:
         os.chdir(path)
 
@@ -374,7 +374,7 @@ def do_new(sdk):
     activity = get_input('what do you wanna call your activity?','shit man, bad name.',check_name)
     package = get_input('what java package for your source code?','shit man, bad package.',check_package)
     
-    call([android,'create','project','--target',target,'--name',name,'--path','.','--activity',activity,'--package',package])
+    call([android,'create','project','--target',target,'--name',name,'--path','.','--activity',activity,'--package',package,'-g','-v','1.0+'])
     exit(0)
 
 def get_yn_choice():
