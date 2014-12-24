@@ -542,6 +542,10 @@ if __name__ == '__main__':
         for arg in sys.argv[1:]:
             cmds += arg.lower().split(',')
 
+    if 'help' in cmds:
+        util.print_help(globals())
+        exit(0)
+
     if 'env' in cmds:
         cmds.remove('env')
         do_env()
